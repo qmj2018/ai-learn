@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
+import axios from 'axios'
+import SettingsPanel from './SettingsPanel'
+import LoadingAnimation from './LoadingAnimation'
 import './App.css'
 
 type Role = 'user' | 'assistant'
@@ -13,17 +16,21 @@ interface ChatMessage {
   errorText?: string
 }
 
-const DEFAULT_PROMPT = 'You are a helpful AI assistant.'
+const DEFAULT_PROMPT = '你是一个陪我聊天的朋友，请用中文回答我的问题，且每次回答的内容不要超过100字'
 const STORAGE_KEY = 'ai-chat-api-key'
+const STORAGE_API_URL = 'ai-chat-api-url'
+// const DEFAULT_API_URL = 'http://192.168.5.84:8000/v1/chat/completions'
+const DEFAULT_API_URL = 'https://api.cloudflareai.com/v1/chat/completions'
+
 
 const createId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`
 
 async function fetchCompletion(
   history: ChatMessage[],
-  options: { apiKey: string; model: string; systemPrompt: string }
+  options: { apiKey: string; model: string; systemPrompt: string; apiUrl?: string }
 ) {
-  const { apiKey, model, systemPrompt } = options
+  const { apiKey, model, systemPrompt, apiUrl = DEFAULT_API_URL } = options
 
   if (!apiKey) {
     throw new Error('请先填写 OpenAI API Key。')
@@ -32,58 +39,57 @@ async function fetchCompletion(
   const payload = {
     model,
     temperature: 0.7,
+    systemPrompt,
     messages: [
       { role: 'system', content: systemPrompt },
       ...history.map(({ role, content }) => ({ role, content })),
     ],
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  })
+  try {
+    const response = await axios.post(apiUrl, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+    })
 
-  if (!response.ok) {
-    const errorPayload = await response.json().catch(() => null)
-    const message =
-      errorPayload?.error?.message ??
-      `请求失败：${response.status} ${response.statusText}`
-    throw new Error(message)
+    const reply = response.data?.choices?.[0]?.message?.content?.trim()
+
+    if (!reply) {
+      throw new Error('模型未返回内容，请稍后再试。')
+    }
+
+    return reply
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message =
+        error.response?.data?.error?.message ??
+        `请求失败：${error.response?.status} ${error.response?.statusText ?? error.message}`
+      throw new Error(message)
+    }
+    throw error instanceof Error ? error : new Error('未知错误，请稍后再试。')
   }
-
-  const data = await response.json()
-  const reply = data.choices?.[0]?.message?.content?.trim()
-
-  if (!reply) {
-    throw new Error('模型未返回内容，请稍后再试。')
-  }
-
-  return reply
 }
 
 function App() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: createId(),
-      role: 'assistant',
-      content: '你好，我是你的 AI 助手，有什么可以帮你的吗？',
-      createdAt: Date.now(),
-    },
-  ])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('gpt-4o-mini')
+  const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL)
+  const [model, setModel] = useState('deepseek')
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT)
   const [loading, setLoading] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   useEffect(() => {
     const storedKey = localStorage.getItem(STORAGE_KEY)
     if (storedKey) {
       setApiKey(storedKey)
+    }
+    const storedUrl = localStorage.getItem(STORAGE_API_URL)
+    if (storedUrl) {
+      setApiUrl(storedUrl)
     }
   }, [])
 
@@ -94,6 +100,14 @@ function App() {
       localStorage.removeItem(STORAGE_KEY)
     }
   }, [apiKey])
+
+  useEffect(() => {
+    if (apiUrl && apiUrl !== DEFAULT_API_URL) {
+      localStorage.setItem(STORAGE_API_URL, apiUrl)
+    } else {
+      localStorage.removeItem(STORAGE_API_URL)
+    }
+  }, [apiUrl])
 
   const isSendDisabled = useMemo(
     () => loading || !input.trim(),
@@ -133,6 +147,7 @@ function App() {
         apiKey,
         model,
         systemPrompt,
+        apiUrl,
       })
 
       setMessages((prev) =>
@@ -169,35 +184,30 @@ function App() {
   }
 
   const clearHistory = () => {
-    setMessages([
-      {
-        id: createId(),
-        role: 'assistant',
-        content: '新的对话开始啦，尽管提问吧！',
-        createdAt: Date.now(),
-      },
-    ])
+    setMessages([])
   }
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">AI Chat / React + Vite</p>
-          <h1>智能对话助手</h1>
+          <p className="eyebrow">AI Chat</p>
+          <h1>智能陪聊</h1>
           <p className="subtitle">
-            使用 OpenAI Chat Completions 接口，实时获得自然语言回复。支持自定义模型、系统提示词以及本地存储
-            API Key。
+            陪你聊天，陪你解闷，陪你度过无聊的时光，还能帮你做做小任务。
           </p>
         </div>
         <div className="header-actions">
           <button className="ghost" onClick={clearHistory}>
             清空对话
           </button>
+          <button className="ghost settings-btn" onClick={() => setIsSettingsOpen(true)}>
+            设置
+          </button>
         </div>
       </header>
 
-      <div className="app-grid">
+      <div className="app-content">
         <section className="chat-panel">
           <div className="message-list">
             {messages.map((message) => (
@@ -205,7 +215,7 @@ function App() {
                 key={message.id}
                 className={`message ${message.role} ${
                   message.status === 'error' ? 'error' : ''
-                }`}
+                } ${message.status === 'loading' ? 'status-loading' : ''}`}
               >
                 <div className="message-meta">
                   <span className="message-role">
@@ -220,7 +230,7 @@ function App() {
                 </div>
                 <p className="message-content">
                   {message.content}
-                  {message.status === 'loading' && <span className="cursor">█</span>}
+                  {message.status === 'loading' && <LoadingAnimation />}
                 </p>
                 {message.errorText && (
                   <p className="message-error">原因：{message.errorText}</p>
@@ -242,42 +252,20 @@ function App() {
             </button>
           </form>
         </section>
-
-        <section className="settings-panel">
-          <h2>对话参数</h2>
-          <label className="field">
-            <span>OpenAI API Key</span>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder="sk-..."
-            />
-          </label>
-
-          <label className="field">
-            <span>模型名称</span>
-            <input
-              type="text"
-              value={model}
-              onChange={(event) => setModel(event.target.value)}
-              placeholder="例如：gpt-4o-mini"
-            />
-          </label>
-
-          <label className="field">
-            <span>系统提示词</span>
-            <textarea
-              value={systemPrompt}
-              onChange={(event) => setSystemPrompt(event.target.value)}
-              rows={5}
-            />
-          </label>
-          <p className="tip">
-            API Key 仅保存在本地浏览器的 localStorage 中，不会上传到服务器。
-          </p>
-        </section>
       </div>
+
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        apiUrl={apiUrl}
+        onApiUrlChange={setApiUrl}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+        model={model}
+        onModelChange={setModel}
+        systemPrompt={systemPrompt}
+        onSystemPromptChange={setSystemPrompt}
+      />
     </div>
   )
 }
