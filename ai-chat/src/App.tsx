@@ -2,25 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import axios from 'axios'
 import SettingsPanel from './SettingsPanel'
-import LoadingAnimation from './LoadingAnimation'
+import Message, { type ChatMessage } from './components/Message'
 import './App.css'
-
-type Role = 'user' | 'assistant'
-
-interface ChatMessage {
-  id: string
-  role: Role
-  content: string
-  createdAt: number
-  status?: 'loading' | 'error'
-  errorText?: string
-}
 
 const DEFAULT_PROMPT = '你是一个陪我聊天的朋友，请用中文回答我的问题，且每次回答的内容不要超过100字'
 const STORAGE_KEY = 'ai-chat-api-key'
 const STORAGE_API_URL = 'ai-chat-api-url'
-// const DEFAULT_API_URL = 'http://192.168.5.84:8000/v1/chat/completions'
-const DEFAULT_API_URL = 'https://api.cloudflareai.com/v1/chat/completions'
+const DEFAULT_API_URL = 'http://192.168.5.84:8000/v1/chat/completions'
+// const DEFAULT_API_URL = 'https://api.cloudflareai.com/v1/chat/completions'
 
 
 const createId = () =>
@@ -187,6 +176,19 @@ function App() {
     setMessages([])
   }
 
+  const copyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      // 可以添加一个提示，但这里先简单处理
+    } catch (err) {
+      console.error('复制失败:', err)
+    }
+  }
+
+  const deleteMessage = (messageId: string) => {
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId))
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -211,31 +213,12 @@ function App() {
         <section className="chat-panel">
           <div className="message-list">
             {messages.map((message) => (
-              <article
+              <Message
                 key={message.id}
-                className={`message ${message.role} ${
-                  message.status === 'error' ? 'error' : ''
-                } ${message.status === 'loading' ? 'status-loading' : ''}`}
-              >
-                <div className="message-meta">
-                  <span className="message-role">
-                    {message.role === 'user' ? '你' : 'AI'}
-                  </span>
-                  <time>
-                    {new Intl.DateTimeFormat('zh-CN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }).format(message.createdAt)}
-                  </time>
-                </div>
-                <p className="message-content">
-                  {message.content}
-                  {message.status === 'loading' && <LoadingAnimation />}
-                </p>
-                {message.errorText && (
-                  <p className="message-error">原因：{message.errorText}</p>
-                )}
-              </article>
+                message={message}
+                onCopy={copyMessage}
+                onDelete={deleteMessage}
+              />
             ))}
           </div>
 

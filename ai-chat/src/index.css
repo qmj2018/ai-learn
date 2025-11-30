@@ -21,11 +21,20 @@ body {
   margin: 0;
   min-height: 100vh;
   background: transparent;
+  overscroll-behavior: none; /* 禁用页面滚动回弹 */
+  overscroll-behavior-y: none; /* 禁用垂直滚动回弹 */
 }
 
 #root {
   max-width: 1200px;
   margin: 0 auto;
+  overscroll-behavior: none; /* 禁用滚动回弹 */
+  overscroll-behavior-y: none;
+}
+
+html {
+  overscroll-behavior: none; /* 禁用滚动回弹 */
+  overscroll-behavior-y: none;
 }
 
 textarea,
