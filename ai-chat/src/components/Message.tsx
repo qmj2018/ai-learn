@@ -16,15 +16,22 @@ interface MessageProps {
   message: ChatMessage
   onCopy: (content: string) => void
   onDelete: (messageId: string) => void
+  onRetry?: (messageId: string) => void
 }
 
-export default function Message({ message, onCopy, onDelete }: MessageProps) {
+export default function Message({ message, onCopy, onDelete, onRetry }: MessageProps) {
   const handleCopy = () => {
     onCopy(message.content)
   }
 
   const handleDelete = () => {
     onDelete(message.id)
+  }
+
+  const handleRetry = () => {
+    if (onRetry) {
+      onRetry(message.id)
+    }
   }
 
   return (
@@ -46,6 +53,16 @@ export default function Message({ message, onCopy, onDelete }: MessageProps) {
           </time>
         </div>
         <div className="message-actions">
+          {message.status === 'error' && onRetry && (
+            <button
+              className="message-action-btn retry-btn"
+              onClick={handleRetry}
+              aria-label="重试"
+            >
+              🔄
+              <span className="tooltip">重试</span>
+            </button>
+          )}
           <button
             className="message-action-btn copy-btn"
             onClick={handleCopy}

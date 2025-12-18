@@ -8,9 +8,9 @@ import './App.css'
 const DEFAULT_PROMPT = '你是一个陪我聊天的朋友，请用中文回答我的问题，且每次回答的内容不要超过100字'
 const STORAGE_KEY = 'ai-chat-api-key'
 const STORAGE_API_URL = 'ai-chat-api-url'
-const DEFAULT_API_URL = 'http://192.168.5.84:8000/v1/chat/completions'
+// const DEFAULT_API_URL = 'http://10.74.41.111:8000/v1/chat/completions'
 // const DEFAULT_API_URL = 'https://api.cloudflareai.com/v1/chat/completions'
-
+const DEFAULT_API_URL = 'https://wetly-uncaricatured-nancie.ngrok-free.dev/v1/chat/completions'
 
 const createId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`
@@ -66,7 +66,7 @@ function App() {
   const [input, setInput] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL)
-  const [model, setModel] = useState('deepseek')
+  const [model, setModel] = useState('qwen3')
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT)
   const [loading, setLoading] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)

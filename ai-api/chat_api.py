@@ -29,7 +29,6 @@ app.add_middleware(
 
 class GenerationRequest(BaseModel):
     messages: List[dict]
-    systemPrompt: Optional[str] = ''
     max_tokens: Optional[int] = 8192
     temperature: Optional[float] = 0.7
     top_p: Optional[float] = 0.9
